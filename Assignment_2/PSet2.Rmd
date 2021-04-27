@@ -1,0 +1,297 @@
+---
+author: Archit Matta and Abhishek Sinha
+title: "EDAV PSet 2"
+output: html_document
+---
+```{r, include=FALSE}
+SOLUTIONS <- TRUE
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, echo = SOLUTIONS, 
+                      eval = SOLUTIONS, cache = FALSE)
+library(tidyverse)
+```
+
+
+Read *Graphical Data Analysis with R*, Ch. 4, 5
+
+Grading is based both on your graphs and verbal explanations. Follow all best practices as discussed in class.
+
+```{r setup, include=FALSE}
+# keep this chunk in your .Rmd file
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+### 1. Jungle Garden
+Data: `garden_planting` from **gardenR** package
+
+```
+# install.packages("remotes")
+# remotes::install_github("llendway/gardenR")
+```
+
+For each of the following choose the appropriate data from the package and draw a bar chart, following best practices, that can directly answer the following questions. For each, explain your choice of bar order.
+
+a) How many varieties of each type of vegetable were planted?
+
+```{r}
+library(gardenR)
+library(dplyr)
+library(scales)
+
+group_data = garden_planting%>%
+              group_by(vegetable) %>%
+                summarise(varieties = n_distinct(variety)) 
+
+ggplot(data = group_data, mapping = aes(x = reorder(vegetable,varieties), varieties)) + 
+  geom_bar(stat = "identity", color = 'white', fill= 'steelblue') +
+    coord_flip() +
+      xlab('Type of Vegetable') +
+        ylab('Number of Varieties') +
+          scale_y_continuous(breaks = pretty_breaks()) +
+            ggtitle("Number of Varieties by Vegetables") +
+              theme(plot.title = element_text(hjust = 0.5))
+```
+
+**The above graph shows the number of varieties planted for each type of vegetable. We chose the above bar order to show the data in descending order thus showing the vegetables having the most number of varieties first as the data has no natural order.**
+
+b) Were there any days of the week that Dr. Lendway never planted? Which days of the week was she most likely to be found planting? (Measure by the number of rows in `garden_planting`.)
+
+```{r}
+library(gardenR)
+library(dplyr)
+library(scales)
+
+garden_planting$day <- weekdays(as.Date(garden_planting$date))
+garden_planting$day <- factor(garden_planting$day,levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+ggplot(data = garden_planting, aes(garden_planting$day)) + 
+  geom_histogram(stat = 'count', color = 'white', fill= 'steelblue') +
+    xlab('Day of the Week') +
+      ylab('Number of Plantings') +
+        ggtitle("Number of Plantings by Day of the Week") +
+          theme(plot.title = element_text(hjust = 0.5)) +
+            scale_y_continuous(breaks = pretty_breaks())
+```
+
+**There were no plantings on Tuesdays. Wednesday was the most likely day for plantings followed by Saturday. We chose the above bar order to show the data in it's natural order thus preserving the order of the days of the week.**
+
+c) How many seeds were planted in each plot? 
+
+```{r}
+library(gardenR)
+library(dplyr)
+library(scales)
+
+group_data = garden_planting%>%
+              group_by(plot) %>%
+                summarise(seeds = sum(number_seeds_planted)) 
+group_data$seeds[is.na(group_data$seeds)] <- 0
+
+ggplot(data = group_data, mapping = aes(x = reorder(plot,seeds), seeds)) + 
+  geom_bar(stat = "identity", color = 'white', fill= 'steelblue') +
+    coord_flip() +
+      xlab('Name of Plot') +
+        ylab('Number of Seeds Planted') +
+          scale_y_continuous(breaks = pretty_breaks()) +
+            ggtitle("Number of Seeds Planted by Plot") +
+              theme(plot.title = element_text(hjust = 0.5))
+```
+
+**The above graph shows the number of seeds planted for each plot. We chose the above bar order to show the data in descending order thus showing the plots having the most number of seeds first as the data has no natural order.**
+
+### 2. Vaccination Rates
+
+To get the data for this problem, we’ll scrape data from this page: https://www.beckershospitalreview.com/public-health/states-ranked-by-percentage-of-covid-19-vaccines-administered.html. Important: you should only execute parts (a) and (b) once. After running these lines, comment them out, and leave them commented out in the submitted version.
+
+a) Check that it's ok to scrape the site. What is the result?
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(robotstxt)
+
+# paths_allowed("https://www.beckershospitalreview.com/public-health/states-ranked-by-percentage-of-covid-19-vaccines-administered.html")
+```
+
+**The result we got was 'TRUE'. Thus, it is okay to scrape the site.**
+
+b) Read the page at the URL listed above and save it.
+
+```{r}
+# data <- read_html("https://www.beckershospitalreview.com/public-health/states-ranked-by-percentage-of-covid-19-vaccines-administered.html")
+# write_html(data, "/Users/architmatta/Documents/Columbia/Spring 2021/Exploratory Data Analysis/Assignments/Assignment 2/data.html", options = "format")
+```
+
+**We read the page at the URL and saved it to the file 'data.html'.**
+
+c) Read in the page saved in part b) and create a data frame with the following columns: `State`, `Distributed`, `Administered`, `Percentage`. Display the first six rows of the data frame.
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(robotstxt)
+library(qdapRegex)
+
+data <- read_html("/Users/architmatta/Documents/Columbia/Spring 2021/Exploratory Data Analysis/Assignments/Assignment 2/data.html")
+
+state_column = data%>%html_nodes("ol") %>%html_nodes("strong")%>%html_text()
+text = data%>%html_nodes("ol")%>%html_nodes("li")%>%html_text()
+distributed_column = unlist(rm_between(text, 'to state: ', 'Doses administered', extract = TRUE)[])
+administered_column = unlist(rm_between(text, 'administered: ', 'Percentage of', extract = TRUE)[])
+percentage_column = str_sub(text, -5, -1)
+
+df <- data.frame(unlist(state_column), unlist(distributed_column), unlist(administered_column), unlist(percentage_column))
+names(df) <- c("State", "Distributed", "Administered", "Percentage")
+df$Distributed = as.numeric(gsub(",", "" , df$Distributed))
+df$Administered = as.numeric(gsub(",", "" , df$Administered))
+df$Percentage = as.numeric(df$Percentage)
+
+head(df, 6)
+```
+
+**The above table shows the first 6 lines of the dataframe.**
+
+d) Create a Cleveland dot plot showing the percentage of distributed vaccines that have been administered.
+
+```{r}
+ggplot(data = df, mapping = aes(x = reorder(State, Percentage), Percentage)) +
+  geom_point(stat = "identity", color = 'steelblue', fill= 'white') +
+    coord_flip() +
+      ylab('Percentage of Vaccines') +
+        xlab('Name of State') +
+          ggtitle("Percentage of Distributed Vaccines that have been Administered by State") +
+            theme(plot.title = element_text(hjust = 0.9))+
+              scale_y_continuous(breaks = pretty_breaks()) 
+```
+
+**The above graph shows the percentage of distributed vaccines that have been administered for each state. We chose the above bar order to show the data in descending order thus showing the states having the highest percentage of distributed vaccines that have been administered first as the data has no natural order.**
+
+e) Create a multiple Cleveland dot plot showing doses distributed in one color and doses administered in another for each state. Experiment with different sorting orders. Choose the one that you think works best and explain why.
+
+```{r}
+tidydf <- select(df, State, Distributed, Administered) %>% pivot_longer(cols = !State, names_to = "Type", values_to = "Number")
+
+ggplot(tidydf, aes(Number, fct_reorder2(State, Type == "Administered", Number, .desc = FALSE),color = Type)) +
+  geom_point(stat = "identity") +
+    xlab('Number of Vaccines') +
+      ylab('Name of State') +
+        ggtitle("Number of Vaccines by State") +
+          theme(plot.title = element_text(hjust = 0.5)) +
+            scale_x_continuous(breaks = pretty_breaks()) 
+```
+
+**We chose the above bar order to show the data in descending order by Vaccines Administered thus showing the States having highest Number of Administered Vaccines first as the data has no natural order. We decided to go with this order because Number of Vaccines Administered have a higher significance than Number of Vaccines Distributed as Distributed Vaccines that have not yet been Administered do not hold much significance. An even better way of ordering would've been by Number of Vaccines Administered as a Percentage of State Population if the Data had been available.**
+
+### 3. Taxis
+
+Data: NYC yellow cab rides in June 2020, available here:  
+
+https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page
+
+It's a large file so you may work with a reasonably-sized random sample of the data (for example 10000 rows). If you remove outliers / impossibilities explain your logic.
+
+Draw four plots of `tip_amount` vs. `fare_amount` with the following variations:
+ 
+Pre-Processing
+
+<strong>
+
+We process the data in three steps
+
+* First we take the data for a sample of 10000 rows with a seed of 100003. This is because the data is too large otherwise, we presume this to be representative of the entire data. Then we proceed with cleaning the sample.
+
+* We make a quick boxplot to understand the distribution of the columns. Based on this, we decided to remove all outliers from both columns. This was for 2 reasons:
+
+  * The visualizations made do not convey information well on including outliers as most of the data is concentrated into a small part of the graph.
+  
+  * The outliers are exceptions that do not convey any information about the general tip and fare trends.
+
+* Finally, we remove all values below 0 as it is impossible for the fare or tip to be negative.
+
+</strong>
+
+```{r}
+library(ggplot2)
+library(dplyr)
+#Reading the Data
+data3all <- read.csv("/Users/architmatta/Documents/Columbia/Spring 2021/Exploratory Data Analysis/Assignments/Assignment 2/yellow_tripdata_2020-06.csv")
+set.seed(100003)
+data3sample<-sample_n(data3all,10000)
+#Cleaning the Data
+
+#x<-boxplot(data3sample$tip_amount, data3sample$fare_amount)
+
+data3<-data3sample[c("tip_amount","fare_amount")]
+tipIQR<-IQR(data3$tip_amount)
+tip_low<-quantile(data3$tip_amount,0.25)-1.5*tipIQR
+tip_up<-quantile(data3$tip_amount,0.75)+1.5*tipIQR
+data3<-data3[data3$tip_amount>tip_low,]
+data3<-data3[data3$tip_amount<tip_up,]
+data3<-data3[data3$tip_amount >= 0,]
+
+fareIQR<-IQR(data3$fare_amount)
+fare_low<-quantile(data3$fare_amount,0.25)-1.5*fareIQR
+fare_up<-quantile(data3$fare_amount,0.75)+1.5*fareIQR
+data3<-data3[data3$fare_amount>fare_low,]
+data3<-data3[data3$fare_amount<fare_up,]
+data3<-data3[data3$fare_amount >= 0,]
+
+#x<-boxplot(data3$tip_amount, data3$fare_amount)
+```
+
+(a) Scatterplot with alpha blending
+
+```{r}
+ggplot(data = data3[c("tip_amount","fare_amount")], aes(x=fare_amount, y=tip_amount)) +
+  geom_point(alpha=0.2,color="steelblue") +
+    ggtitle("Tip vs Fare") +
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+(b) Scatterplot with alpha blending + density estimate contour lines
+
+```{r}
+ggplot(data = data3[c("tip_amount","fare_amount")], aes(x=fare_amount, y=tip_amount))+
+  geom_point(alpha=0.2,color="steelblue")+
+    geom_density_2d(color = "darkred")+
+      ggtitle("Tip vs Fare") +
+        theme(plot.title = element_text(hjust = 0.5))
+```
+
+(c) Hexagonal heatmap of bin counts
+
+```{r}
+ggplot(data = data3[c("tip_amount","fare_amount")],aes(x=fare_amount, y=tip_amount))+
+  scale_fill_gradient(high = "darkred", low = "steelblue")+
+    geom_hex()+
+      ggtitle("Tip vs Fare") +
+        theme(plot.title = element_text(hjust = 0.5))
+```
+
+(d) Square heatmap of bin counts 
+
+```{r}
+ggplot(data = data3[c("tip_amount","fare_amount")],aes(x=fare_amount, y=tip_amount))+
+  scale_fill_gradient(high = "darkred", low = "steelblue")+
+  geom_bin2d(color = 'white')+
+  ggtitle("Tip vs Fare") +
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+For all, adjust parameters to the levels that provide the best views of the data.
+
+(e) Describe noteworthy features of the data, using the "Movie ratings" example on page 82 (last page of Section 5.3) as a guide.  
+
+<strong>
+
+From the plots, a number of things can be inferred about the data:
+
+ * In general, as expected there seems to be a positive correlation between the amount tipped and the fare to be paid. This is expected as usually the tip is paid in proportion to the fare.
+
+ * We can also see that at all fare amounts there remain a few people that do not tip at all.
+
+ * Apart from this, it can be observed that some points are distinctly arranged in straight lines, this could be representative of the standard proportion of the fare that is given as tip (For example - 15% of the fare, etc.). This is further made clear by the gaps we see between these lines.
+
+ * Finally, we can also see that the highest concentration of individuals is in the \$5 - \$10 fare_amount range, gradually reducing in concentration as fare increases.
+ 
+ </strong>

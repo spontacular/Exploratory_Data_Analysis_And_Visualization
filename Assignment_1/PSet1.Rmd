@@ -1,0 +1,214 @@
+---
+title: "Problem Set 1"
+author: 
+date: 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE,
+                      message = FALSE)
+SOLUTIONS <- FALSE
+```
+
+Note: Grading is based both on your graphs and verbal explanations. Follow all best practices as discussed in class, including choosing appropriate parameters for all graphs.
+
+Read *Graphical Data Analysis with R*, Ch. 3
+
+### 1. Education and Income
+
+[8 points]
+
+Data: *ex0525* in the **Sleuth3** package
+
+a) Draw multiple horizontal boxplots of `Income2005`, by `Educ` (education level). Order the boxplots from lowest educational level at the bottom to highest educational level at the top. (Hint: reorder factor levels) What do you observe?
+
+```{r}
+#install.packages("Sleuth3")
+library(Sleuth3)
+library(tidyverse)
+
+# convert Educ from an integer to a factor, and make "<12" the first factor level 
+# Initial Factor level: 12 13-15 16 <12 >16
+#forcats: This is a generalisation of stats::relevel() that allows you to move any number of levels to any location.
+mydata <- ex0525 %>% 
+  dplyr::mutate(Educ = forcats::fct_relevel(Educ, "<12", "12", "13-15", "16", ">16"))
+#Current Factor Level: <12 12 13-15 16 >16
+
+ggplot(data = mydata, mapping = aes(x = Educ, y = Income2005)) +
+  geom_boxplot() + 
+  coord_flip()   
+```
+
+**People with higher number of years of education completed, tend to have a higher median, lower hinge (25 percentile), and upper hinge (75th percentile) values of Annual income in 2005, as compared to people with lower number of years of education completed.**
+
+b) Draw histograms, faceted by `Educ`, for the same data. Describe one insight that was not visible in the boxplots.
+
+```{r}
+ggplot(data = mydata, aes(x = Income2005)) +
+  geom_histogram(boundary=0,binwidth = 40000, color = "green", fill = "lightgreen") + 
+  facet_wrap(~Educ)
+```
+
+**The income distribution plot is approximately similar (right-skewed) for all years of education, except for people with greater than 16 years of education. This indicates that the count of people decreases as the income increases for each level of education (as seen by the decreasing bar height) except those with greater than 16 years of education (there is an increase in bar height before decreasing). **
+
+c) Plot overlapping density curves of the same data, one curve per education level, on a single set of axes. Each curve should be a different color. What additional information do you learn? 
+
+```{r}
+mydatatemp <- filter(mydata, Income2005 < 300000)
+ggplot(mydatatemp, aes(Income2005, color = Educ, fill = Educ)) +
+  geom_density(alpha = .25)
+```
+
+**As the years of education increase, the density curves for income start becoming less right skewed. The slope (Towards the right of the highest point) of the graphs becomes less steep as the years of education increase indicating that there is more data present towards the right side of the graph. This can be used to infer that having more years of education makes a person more likely to break the general trend of the distribution which is further substantiated by the increasing number of outliers as seen in the box plot.**
+
+### 2. Boundaries
+
+[4 points]
+
+a) Find or create a small dataset (< 100 observations) for which right open and right closed histograms for the same parameters are not identical. Display the full dataset (that is, show the numbers) and the plots of the two forms.
+
+```{r}
+x_val <- c(31, 42, 29, 42, 29, 26, 39, 43, 36, 58, 56, 49, 42, 48, 33, 22, 59, 60, 20, 46, 38, 38, 60, 28, 27, 50, 46, 27, 53, 29, 23, 31, 41, 33, 46, 43, 23, 20, 36, 40, 36, 57, 32, 33, 33, 41, 53, 56, 26, 42, 41, 30, 35, 28, 53, 26, 29, 36, 60, 23, 32, 42, 24, 49, 50, 49, 21, 60, 60, 31, 22, 44, 20, 41, 23, 41, 33, 60, 56, 36, 55, 39, 33, 52, 21, 35, 25, 57, 58, 28, 39, 32, 60, 47, 20, 40, 31, 20, 34)
+mydata2 <- data.frame(x_val)
+print(mydata2)
+
+ggplot(data=mydata2,mapping = aes(x_val)) +
+  geom_histogram(binwidth = 5, color ="blue", fill = 'lightblue',closed = 'right', center=22.5) +
+  ggtitle("Right Closed Different")
+
+ggplot(data=mydata2,mapping = aes(x_val)) +
+  geom_histogram(binwidth = 5, color ="blue", fill = 'lightblue',closed = 'left', center=22.5) +
+  ggtitle("Left Closed Different")
+```
+
+b) Adjust parameters--the same for both--so that the right open and right closed versions become identical. Explain your strategy.
+
+```{r}
+
+ggplot(data=mydata2,mapping = aes(x_val)) +
+  geom_histogram(binwidth = 5, color ="blue", fill = 'lightblue',closed = 'right', center=20) +
+  ggtitle("Right Closed Identical")
+
+ggplot(data=mydata2,mapping = aes(x_val)) +
+  geom_histogram(binwidth = 5, color ="blue", fill = 'lightblue',closed = 'left', center=20) +
+  ggtitle("Left Closed Identical")
+```
+
+**The integer border values caused the difference between left closed and right closed graphs, hence we shifted the center such that our boundaries became non-integer and none of our border values fall on the boundary anymore.**
+
+### 3. Beavers
+
+[8 points]
+
+a) Use QQ (quantile-quantile) plots with theoretical normal lines to compare `temp` for the built-in `beaver1` and `beaver2` datasets.  Which appears to be more normally distributed?
+
+```{r}
+qqnorm(beaver1$temp, main = 'beaver1')
+qqline(beaver1$temp, col = 'red', lwd = 2)
+
+qqnorm(beaver2$temp, main = 'beaver2')
+qqline(beaver2$temp, col = 'red', lwd = 2)
+```
+
+**beaver1 looks to be more normally distributed than beaver2 as it lies closer to the theoretical normal distribution line.**
+
+b) Draw density histograms with density curves and theoretical normal curves overlaid. Does the data appear to be normally distributed?
+
+```{r}
+hist(beaver1$temp, prob = TRUE, xlab = 'Temperature', main = 'beaver1', ylim = c(0,2.7))
+curve(dnorm(x, mean = mean(beaver1$temp), sd = sd(beaver1$temp)), add = TRUE, lwd = 2,  col = 'red')
+lines(density(beaver1$temp), lwd = 2)
+
+hist(beaver2$temp, prob = TRUE, xlab = 'Temperature', main = 'beaver2')
+curve(dnorm(x, mean = mean(beaver2$temp), sd = sd(beaver2$temp)), add = TRUE, lwd = 2,  col = 'red')
+lines(density(beaver2$temp), lwd = 2)
+```
+
+**beaver1 looks to be almost normally distributed as it's density curve is pretty similar to the theoretical normal curve with the distribution having a peak in the middle. beaver2 doesn't look to be normally distributed as it's density curve is not similar to the theoretical normal curve with the distribution looking bimodal.**
+
+c) Perform the Shapiro-Wilk test for normality using the `shapiro.test()` function and interpret the results. 
+
+```{r}
+shapiro.test(beaver1$temp)
+
+shapiro.test(beaver2$temp)
+```
+
+**Going by the default p-value threshold of 0.05 (Assuming a 95% confidence interval), both the p-values for beaver1 (0.01226) and beaver2 (7.764e-05) are less than the threshold. Hence, the null hypothesis that the data comes from a normal distribution must be rejected for both distributions. However, a higher p-value for beaver1 than beaver2 indicates that beaver1 is more likely to come from a normal distribution in comparison to beaver2.**
+
+d) Did all of the methods for testing for normality (a, b, and c) produce the same results? Briefly explain.
+
+**Yes, all methods for testing normality (a, b and c) produce similar results. All the methods indicate that beaver1 is closer to a normal distribution than beaver2. At the same time, a deeper analysis into the graphs and p-values indicate that beaver1 is also not perfectly normal in it's distribution.**
+
+### 4. Doctors
+
+[4 points]
+
+Draw two histograms of the age of death attributed to coronary artery disease among doctors in the *breslow* dataset (**boot** package), one for smokers and one for non-smokers. *Hint: read the help file ?breslow to understand the data.*
+
+
+```{r}
+library(boot)
+library(FSA)
+
+par(mfrow=c(1,2))
+#Non-Smokers
+mydata4 <- breslow
+
+#Attempt using ggplot
+# ggplot(data=mydata4, mapping = aes(x = age, y=y)) +
+#   geom_histogram(center=40, boundary=0, stat = 'identity', color = 'blue', fill='lightblue')+
+#   facet_wrap(~smoke)
+
+mydata4_non_smoke <- filter(mydata4, smoke==0)
+#To make the values numeric
+mydata4_non_smoke$age <- gsub(",", "", mydata4_non_smoke$age) 
+mydata4_non_smoke$age <- as.numeric(mydata4_non_smoke$age)
+h1 <- histFromSum(mydata4_non_smoke$age, mydata4_non_smoke$y, breaks = c(35,45,55,65,75,85), main='Non-Smokers', xlab='Age', ylim=c(0,220))
+
+#Smokers
+mydata4_smoke <- filter(mydata4, smoke==1)
+#To make the values numeric
+mydata4_smoke$age <- gsub(",", "", mydata4_smoke$age) 
+mydata4_smoke$age <- as.numeric(mydata4_smoke$age)
+h2 <- histFromSum(mydata4_smoke$age, mydata4_smoke$y, breaks = c(35,45,55,65,75,85), main='Smokers', xlab='Age', ylim=c(0,220))
+```
+
+
+### 5. Nutrition
+
+[6 points]
+
+Data: `NutritionStudy` in the **Lock5withR** package
+
+a) Create a new categorical variable that represents ages in 10-year groups: 0-10, 11-20, 21-30, etc. Choose one of the continuous variables in the dataset and create a ridgeline plot (**ggridges** package) showing the distribution of the chosen variable by age. 
+
+```{r}
+library(Lock5withR)
+library(ggridges)
+library(dplyr)
+library(ggplot2)
+
+NutritionStudy <- NutritionStudy %>% mutate(AgeGroup = case_when(Age >= 11  & Age <= 20 ~ '11-20',
+                                             Age >= 21  & Age <= 30 ~ '21-30',
+                                             Age >= 31  & Age <= 40 ~ '31-40',
+                                             Age >= 41  & Age <= 50 ~ '41-50',
+                                             Age >= 51  & Age <= 60 ~ '51-60',
+                                             Age >= 61  & Age <= 70 ~ '61-70',
+                                             Age >= 71  & Age <= 80 ~ '71-80',
+                                             Age >= 81  & Age <= 90 ~ '81-90'))
+
+ggplot(NutritionStudy, aes(x = Fat, y = AgeGroup, fill = AgeGroup)) + geom_density_ridges()
+```
+
+b) Display the same data as in part a) using boxplots. 
+
+```{r}
+ggplot(NutritionStudy, aes(x = Fat, y = AgeGroup, fill = AgeGroup)) + geom_boxplot()
+```
+
+c) Compare a) and b). Which do you think is more effective for this data and why?
+
+**I think that the ridgeline plot (a) is a better representation than the boxplot (b) for this data because the ridgeline plot helps visualise the 81-90 agegroup better and coveys that it is bimodal while the boxplot for the 81-90 agegroup looks formally symmetric indicating that it is normally distributed. Both plots represent the other agegroups equally well. Thus the ridgeline plot helps understands the data distribution better.**
+

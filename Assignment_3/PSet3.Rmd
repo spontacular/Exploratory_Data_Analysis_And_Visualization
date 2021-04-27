@@ -1,0 +1,322 @@
+---
+title: "EDAV PSet 3"
+author: "Archit Matta and Shivani Modi"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# this prevents package loading message from appearing in the rendered version of your problem set
+knitr::opts_chunk$set(warning = FALSE,
+                      message = FALSE)
+```
+
+**Important Note**: Grading is based both on your graphs and verbal explanations. Follow all best practices as discussed in class, including choosing appropriate parameters for all graphs, and appropriate color choices. There's one exception: only one of your graphs needs to be drawn with color vision deficient friendly colors. Choose one, and show that that graph passes the test by including a screenshot taken with a color vision deficiency simulator such as Color Oracle (http://colororacle.org/).
+
+All graphs must be drawn in R. I have provided package suggestions but you may choose other options.
+
+You are expected to develop a basic subject matter understanding of the data, looking up, for example, whether a variable is ordinal or nominal, what the units are, etc. as relevant.
+
+*Do not expect the assignment questions to spell out precisely how the graphs should be drawn. Sometimes guidance will be provided, but the absense of guidance does not mean that all choices are ok.*
+
+
+
+Read *Graphical Data Analysis with R*, Ch. 6, 7
+
+### 1. Nutrition
+
+[6 points]
+
+Data: `nutrition` dataset in **EDAWR** package. Install with: 
+
+`remotes::install_github(rstudio/EDAWR)`
+
+Package suggestions: **GGally**, **parcoords**
+
+**Preparing the Data**
+
+```{r}
+library(EDAWR)
+library(dplyr)
+library(GGally)
+library(parcoords)
+
+df <- nutrition
+df2 <- filter(df, df$group %in% (top_n((df %>% count(group)), 3, n)$group))
+df3 <- df2 %>% group_by(group) %>% sample_n(400)
+df3[is.na(df3)] <- 0
+df4 <- df3[, c(28,9,2,3,4,5,24,15,22)]
+```
+
+a) Choose 3 food groups (`group` column) and at least 8 numeric variables and create a static parallel coordinates plot in which each line represents a food item. Color by food group. You may random sample if you find there is too much data to reasonably display. Choose parameters that best show trends in the data: experiment with alpha blending, scale, order of columns, splines (if available), and size of sample.
+
+```{r, fig.width=14, fig.height=6}
+ggparcoord(df3, columns =c(9,2,3,4,5,24,15,22), alphaLines =.05,  splineFactor =5, groupColumn =28,  scale ="uniminmax") + ggtitle("Parameters by Food Group") + labs(x="Parameter", y="Value" ) + theme(axis.text=element_text(size=12), axis.title=element_text(size=14), plot.title=element_text(size=15)) + guides(colour = guide_legend(override.aes = list(alpha = 1)))
+```
+
+**We chose the Top 3 Food Groups by Count and then undersampled them to include 400 observations of each. We also replaced the NULL values with 0.**
+
+**We then experimented with the columns to pick, ordering of these columns, alpha values, scales and spline factors and chose the above values as it showed a good amount of separation and helped identify patterns.**
+
+b) Repeat part a) with the same data but this time create an interactive parallel coodinates plot. 
+
+```{r, fig.width=20, fig.height=6}
+parcoords(df4, rownames = F, brushMode = "1D-axes", reorderable = T, queue = T, color = list(colorBy = "group", colorScale = "scaleOrdinal", colorScheme = "schemeCategory10"), withD3 = TRUE)
+```
+
+**The Interactive Graph has been created for the same Data and can be used to view specific trends by changing the column ordering and applying filters.**
+
+c) Describe clusters, correlations, outliers and anything else of relevance in your plots in detail.
+
+**The Graphs provide a lot of interesting insights. Carbohydrates seem to be Negatively Correlated with Protein because of the criss-cross nature of the Static Curve. The Static Curve also shows 2 Clusters being formed within Vegetables and Vegetable Products - One having High Calories and Carbohydrates and the other having Low Calories and Carbohydrates. The Static Curve also shows Beef Products being split into 3 Clusters based on Protein Value. Making Vitamin A the first column in the interactive graph shows that Vegetables and Vegetable Products have the highest realtive value for it. Comparing the Static and Interactive Graph shows that Vegetables and Vegetable Products have some outliers which have been blurred with Alpha Blending.**
+
+### 2. Electric Cars Rebate
+
+[9 points]
+
+Data: NYSERDA Electric Vehicle Drive Clean Rebate Data: Beginning 2017
+
+Package suggestions:
+
+Mosaic plots: **vcd** or **ggmosaic**
+
+Treemap: **treemap**
+
+From the NYS web site: "New York State’s Charge NY initiative offers electric car buyers the Drive Clean Rebate of up to $2,000 for new car purchases or leases. The rebate amount depends on the battery-only range of each vehicle. Dealers enrolled in the program deduct the eligible amount from the vehicle price at the point of sale and then submit a rebate application with NYSERDA. This dataset includes all completed rebate applications as of the data through date."
+
+https://data.ny.gov/Energy-Environment/NYSERDA-Electric-Vehicle-Drive-Clean-Rebate-Data-B/thd2-fu8y
+
+You can read the data directly from the site with:
+
+`read_csv("https://data.ny.gov/resource/thd2-fu8y.csv")`
+
+Draw the following graphs and answer the questions.
+
+**Preparing the Data**
+
+```{r}
+library(tidyverse)
+library(vcd)
+library(treemap)
+
+df <- read_csv("https://data.ny.gov/resource/thd2-fu8y.csv")
+df$year = substr(df$submitted_date,1,4)
+df2 <- filter(df, df$make %in% (top_n((df %>% count(make)), 5, n)$make))
+df3 <- df %>% count(make, model)
+```
+
+a) Is there an association between transaction type and rebate amount? Justify your answer with a mosaic plot, treating rebate amount as the dependent variable.
+
+```{r, fig.width=15, fig.height=10}
+mosaic(rebate_amount_usd ~ transaction_type, data = df)
+```
+
+**Looking at the Mosaic Plot, we can see that there's an association between Transaction Type and Rebate Amount because the splits are not in straight lines and show a difference between the 2 Transaction Types. We can say that Lease Transactions tend to have higher Rebate Amounts than Purchase Transactions in most cases.**
+
+b) Perform a chi square test to test for association between transaction type and rebate amount. What is the result? Is it the same as in part a)?
+
+```{r}
+test <- chisq.test(table(df$transaction_type, df$rebate_amount_usd))
+test$p.value
+```
+
+**The Chi Square Test gives a P-Value of 5.561966e-15 which signifies that we can reject the Null Hypothesis of Independence since this is much lower than the standard significance value of 0.05. This implies that Transaction Type and Rebate Amount are not independent which is in line with our previous observation.**
+
+c) Draw a mosaic plot of the top five car makes by year in this dataset. Is there an association?
+
+```{r, fig.width=15, fig.height=10}
+mosaic(make ~ year, data = df2, highlighting_fill = c("grey90", "cornflowerblue", "indianred", "palegreen", 'tan2'),)
+```
+
+**We can ignore the Data for 2021 for analyzing the trends since it would represent a very small period of the full year. Looking at the other years, we can spot clear trends and associations. The Market Caps for Chevrolet, Kia and Toyota seem to be decreasing while the Market Caps for Hyundai and Tesla seem to be increasing.**
+
+d) Add `transaction_type` to your plot from part c). What new information do you learn?
+
+```{r, fig.width=15, fig.height=10}
+mosaic(transaction_type ~ year + make, data = df2, direction = c("h", "v", "h"), highlighting_fill = c("grey90", "cornflowerblue"))
+```
+
+**A new piece of information we learn is that the Makes which show a decrease (Chevrolet, Kia and Toyota) have a trend in which their Transaction Type shows a movement from Lease to Purchase with time. However, the Makes which show an increase (Hyundai and Tesla) have a trend in which their Transaction Type shows a movement from Purchase to Lease with time. A possible reason for this could be that since Tesla and Hyundai are bringing rapid innovation in the form of new models, buyers do not want to Purchase a model and commit to it for a long time. They might want frequent upgrades which is possible through a lease based model.**
+
+e) Use the base `pairs()` function to draw a mosaic pairs plot of `ev_type`, `transaction_type`, `rebate_amount_usd` and `year`. Based on the plot, list all pairs of variables from strongest association to weakest association. (Note: The **vcd** package must be loaded for `pairs()` to find the correct method.)
+
+```{r, fig.width=15, fig.height=10}
+pairs(table(df[, c("ev_type", "transaction_type", "rebate_amount_usd", "year")]))
+```
+
+**EV Type has a weak association with Transaction Type, a moderate association with Year and a strong association with Rebate Amount. Transaction Type has a strong association with Rebate Amount and a moderate association with Year. Rebate Amount has a strong association with Year.**
+
+f) Draw a treemap of the make and models of the cars in this dataset. 
+
+```{r, fig.width=15, fig.height=10}
+treemap(df3, index=c("make","model"), vSize="n", type="index") 
+```
+
+### 3. Occupational Mobility
+
+[6 points]
+
+Data: `Yamaguchi87` in the **vcdExtra** package
+
+Package suggestion: **ggalluvial**
+
+a) Draw an alluvial diagram showing upward / downward mobility by class, combining data from all three countries together.
+
+```{r, fig.width=15, fig.height=10}
+library(vcdExtra)
+library(ggalluvial)
+df<-as.data.frame(Yamaguchi87)
+
+
+orderedclasses <- c("Farm", "LoM", "UpM", "LoNM", "UpNM")
+df$Son <- factor(df$Son, levels = orderedclasses)
+df$Father <- factor(df$Father, levels = orderedclasses)
+
+ggplot(as.data.frame(Yamaguchi87),
+       aes(y = Freq, axis1 = Father, axis2 = Son)) +
+  geom_alluvium(aes(fill = Father),width = 1/12) +
+  geom_stratum(width = 1/12, color = "grey") +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Father", "Son"), expand = c(.05, .05)) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle(" Upward/Downward mobility by class")
+
+```
+
+b) Incorporate the country information into your plot in a way that best illustrates the trends and facilitates comparison.
+
+```{r, fig.width=15, fig.height=10}
+ggplot(as.data.frame(Yamaguchi87),
+       aes(y = Freq, axis1 = Father, axis2 = Son)) +
+  geom_alluvium(aes(fill = Father), width = 1/12) +
+  geom_stratum(width = 1/12, color = "grey") +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Father", "Son"), expand = c(.05, .05)) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle(" Upward/Downward mobility by class for each country") +
+  facet_wrap( df$Country, scales = "fixed")
+```
+
+
+c) Based on part b), compare occupational mobility in the U.S., U.K., and Japan.
+
+**Upward Mobility from Farmers to Non-Manual Jobs is the highest in Japan followed by the U.S. and is lowest in the U.K. possibly showing a ceiling of achievable growth. The Downward Mobility from Upper Non-Manual is the highest in Japan followed by the U.K. and is lowest in the U.S. possibly showing a lack of a safety net.**
+
+### 4. State Credit Ratings
+
+[9 points]
+
+Data: `state_ratings.csv` in the data folder of CourseWorks
+
+Package suggestion: **ggalluvial**
+
+The original data source is here: https://www.spglobal.com/ratings/en/research/articles/190319-history-of-u-s-state-ratings-2185306
+
+The issuer credit rating (ICR) indication, distinguishes some ratings from general obligation debt ratings. A footnote on [this site](https://www.treasurer.ca.gov/ratings/current.asp) explains that a state's issue credit rating is listed in place of a general obligation bond rating when a state does not have general obligation debt outstanding. To be consistent with sites like this, and for the purposes of simplification, the ICR indication was removed.
+
+The dates were converted to years, and in cases in which there were more than one entry per year, the latest was selected. For years in which there were no credit rating changes, the latest credit rating available was added. So for example, Wyoming had a listing of AA+ for 2017 which was reduced to AA in 2020. After filling in the inbetween years, we have the following for Wyoming from 2017-2020:
+
+```{r, eval = FALSE, echo = TRUE}
+df <- readr::read_csv("state_ratings.csv")
+dplyr::filter(df, State == "Wyoming" & Year >= 2017)
+```
+
+If you're interested, the script to read and transform the data is available here: get_ratings_data.R
+
+a) Create an alluvial diagram showing rating changes by state over time. You do not have to use all the data. If you choose not to, explain your rationale for subsetting or sampling.
+
+```{r, fig.width=15, fig.height=10}
+library(tidyverse)
+library(ggalluvial)
+library(reshape)
+
+df <- readr::read_csv("state_ratings.csv")
+
+
+dfl <- to_lodes_form(df,axes =1)
+orderedclasses <- c("NR","BBB-","BBB","BBB+","A-","A", "A+","AA-","AA", "AA+", "AAA")
+dfl$Rating <- factor(dfl$Rating, levels = orderedclasses)
+
+df_trans <- cast(df, State~Year,value = 'Rating')
+df_trans$`2006` <- ordered(df_trans$`2006`, levels=orderedclasses)
+df_trans$`2007` <- ordered(df_trans$`2007`, levels=orderedclasses)
+df_trans$`2008` <- ordered(df_trans$`2008`, levels=orderedclasses)
+df_trans$`2009` <- ordered(df_trans$`2009`, levels=orderedclasses)
+df_trans$`2010` <- ordered(df_trans$`2010`, levels=orderedclasses)
+df_trans$`2011` <- ordered(df_trans$`2011`, levels=orderedclasses)
+df_trans$`2012` <- ordered(df_trans$`2012`, levels=orderedclasses)
+df_trans$`2013` <- ordered(df_trans$`2013`, levels=orderedclasses)
+df_trans$`2014` <- ordered(df_trans$`2014`, levels=orderedclasses)
+df_trans$`2015` <- ordered(df_trans$`2015`, levels=orderedclasses)
+df_trans$`2016` <- ordered(df_trans$`2016`, levels=orderedclasses)
+df_trans$`2017` <- ordered(df_trans$`2017`, levels=orderedclasses)
+df_trans$`2018` <- ordered(df_trans$`2018`, levels=orderedclasses)
+df_trans$`2019` <- ordered(df_trans$`2019`, levels=orderedclasses)
+df_trans$`2020` <- ordered(df_trans$`2020`, levels=orderedclasses)
+df_new <- df_trans[order(df_trans[,2], df_trans[,3],df_trans[,4],df_trans[,5],df_trans[,6],df_trans[,7],df_trans[,8],df_trans[,9],df_trans[,10],df_trans[,11],df_trans[,12],df_trans[,13],df_trans[,14],df_trans[,15],df_trans[,16]),]
+
+ggplot(dfl,aes(x=stratum,stratum =Rating,alluvium= State))+
+  scale_y_continuous(breaks=1:50, 
+                     labels=rev(df_new$State))+
+  geom_alluvium(color ="blue")+
+  geom_stratum()+
+  geom_text(stat ="stratum",aes(label =after_stat(stratum)))
+
+```
+
+
+b) Create a heatmap with the same data (if applicable use the same subset or sample), also showing rating changes by state over time. (One option: `geom_tile()`.)
+
+```{r, fig.width=15, fig.height=10}
+library(viridis)
+orderedclasses <- c("NR","BBB-","BBB","BBB+","A-","A", "A+","AA-","AA", "AA+", "AAA")
+df$Rating <- factor(df$Rating, levels = orderedclasses)
+theme_heat <- theme_classic() +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank())
+
+plot <- ggplot(df, aes(x = Year, y = State)) +
+  geom_tile(aes(fill = Rating), color = "white") +
+  coord_fixed()  + theme_heat
+
+plot  + scale_fill_viridis(discrete = TRUE) +
+  ggtitle("Rating changes by state over time") +
+  labs(caption = "Source: ICR (Issuer credit rating)") +
+  theme(plot.title = element_text(face = "bold")) +
+  theme(plot.subtitle = element_text(face = "bold", color = "grey35")) +
+  theme(plot.caption = element_text(color = "grey68"))
+```
+
+
+
+c) Compare a) and b). What advantages does each have? Which do you prefer?
+
+**Heatmap is able to better capture the variations of ratings over a long period of time through color coding making it easier to recognize trends. Alluvial map provides better visualization for categorical 'Rating' data point and multidimensional data with years as the axis. It shows the changes in rating category at different situations of discrete indexes. It is also color vision deficient friendly being all in greyscale. We would prefer Heatmap as it is easier to observe trends in it. With alluvial plot it gets tricky to observe the flow with 50 discrete State values.**
+
+
+### Color Vision Deficient Friendly Graph
+
+#### Original Graph
+
+```{r, fig.width=15, fig.height=10}
+mosaic(rebate_amount_usd ~ transaction_type, data = read_csv("https://data.ny.gov/resource/thd2-fu8y.csv"))
+```
+
+#### Color Oracle Screenshots
+
+```{r, echo=FALSE}
+# Define variable containing url
+url1 <- "https://cdn1.bbcode0.com/uploads/2021/3/15/58edf5e9917596291ce0c5ace27aab8b-full.png"
+url2 <- "https://cdn1.bbcode0.com/uploads/2021/3/15/21b2c5e3c3467a46814ac49417237010-full.png"
+url3 <- "https://cdn1.bbcode0.com/uploads/2021/3/15/e1444141dad70ec7c55348365fda1461-full.png"
+url4 <- "https://cdn1.bbcode0.com/uploads/2021/3/15/97d53a05a3c93869357928c2c68c2dd3-full.png"
+```
+
+<center><img src="`r url1`"></center>
+
+<center><img src="`r url2`"></center>
+
+<center><img src="`r url3`"></center>
+
+<center><img src="`r url4`"></center>
+
+**We uploaded the screenshots on the web and added them to the RMD file instead of directly adding them from our local directory to preserve re-execution and configurability.**
